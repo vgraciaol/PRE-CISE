@@ -4,15 +4,17 @@
 #' @param B.re The desired posterior sample size at the resample stage.
 #' @param number_k The maximum number of iterations in IMIS
 #' @param D The number of optimizers which could be 0.
+#' @param v_lb Vector containing the lower bounds of the calibrated parameters.
+#' @param v_ub Vector containing the upper bounds of the calibrated parameters.
 #'
 #' @return The posterior resamples.
 #' @source Adrain Raftery and Le Bao. IMIS package. http://cran.nexr.com/web/packages/IMIS/index.html
 #' 
 #' @import mvtnorm
 #' @export
-IMIS <- function(B=1000, B.re=3000, number_k=100, D=0){
+IMIS <- function(B=1000, B.re=3000, number_k=100, D=0, v_lb, v_ub){
   B0 = B*10
-  X_all = X_k = sample_prior(B0)				# Draw initial samples from the prior distribution
+  X_all = X_k = sample_prior(B0, v_lb = v_lb, v_ub = v_ub)				# Draw initial samples from the prior distribution
   if (is.vector(X_all))	Sig2_global = var(X_all)	# the prior covariance
   if (is.matrix(X_all))	Sig2_global = cov(X_all)	# the prior covariance
   stat_all = matrix(NA, 6, number_k)				# 6 diagnostic statistics at each iteration
@@ -21,7 +23,7 @@ IMIS <- function(B=1000, B.re=3000, number_k=100, D=0){
   if (D>=1)	option.opt = 1					# use optimizer
   if (D==0){	option.opt = 0; D=1	}			# NOT use optimizer
   
-  for (k in 1:number_k){ # k = 2
+  for (k in 1:number_k){ # k = 1
     
     ptm.like = proc.time()
     prior_all = c(prior_all, prior(X_k))		# Calculate the prior densities

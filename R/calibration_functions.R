@@ -10,27 +10,33 @@
 calibration_out <- function(v_params){
   
   # Run model
-  l_model_out <- sick_sicker_cstm(v_params)
+  df_model_out <- sick_sicker_cstm(v_params)
   
   # Data.frame for each calibration target
   # Survival
-  df_Surv <- data.frame(type = "Model", 
-                        Outcome = "Surv",
-                        time = l_model_out[[1]]$time,
-                        value = l_model_out[[1]]$Surv)
+  df_Surv <- data.frame(time = df_model_out$time,
+                        Outcome = "Survival",
+                        abbrev_outcome = "Surv",
+                        type = "Model", 
+                        value = df_model_out$Surv) %>% 
+    filter(time %in% c(10,20,30))
   
   # Prevalence
-  df_Prev <- data.frame(type = "Model", 
-                        Outcome = "Prev",
-                        time = l_model_out[[2]]$time,
-                        value = l_model_out[[2]]$Prev)
+  df_Prev <- data.frame(time = df_model_out$time,
+                        Outcome = "Prevalence",
+                        abbrev_outcome = "Prev",
+                        type = "Model",
+                        value = df_model_out$Prev) %>% 
+    filter(time %in% c(10,20,30))
   
   # Proportion who are Sick ("PropSick")
   # among all those afflicted (Sick+Sicker)
-  df_PropSick <- data.frame(type = "Model", 
-                            Outcome = "PropSick",
-                            time = l_model_out[[3]]$time,
-                            value = l_model_out[[3]]$PropSick)
+  df_PropSick <- data.frame(time = df_model_out$time,
+                            Outcome = "Proportion of sick",
+                            abbrev_outcome = "PropSick",
+                            type = "Model", 
+                            value = df_model_out$PropSick) %>% 
+    filter(time %in% c(10,20,30))
   
   # Return data.frame
   return(list(df_Surv     = df_Surv,
@@ -44,12 +50,15 @@ calibration_out <- function(v_params){
 #' from their prior distribution.
 #' 
 #' @param n_samp Number of samples.
+#' @param v_lb Vector containing the lower bounds of the calibrated parameters.
+#' @param v_ub Vector containing the upper bounds of the calibrated parameters.
 #'
 #' @return A matrix with n number of columns as number of parameters to be calibrated
 #' and \code{n_samp} rows. Each row corresponds to a 
 #' parameter set sampled from their prior distributions.
 #' @export
-sample_prior <- function(n_samp){
+sample_prior <- function(n_samp, v_lb, v_ub){
+  
   m_lhs_unit   <- randomLHS(n = n_samp, k = n_param)
   m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
   colnames(m_param_samp) <- v_param_names
@@ -125,33 +134,38 @@ log_lik <- function(v_params){
     v_params <- t(v_params) 
   }
   n_samp <- nrow(v_params)
-  v_llik <- matrix(0, nrow = n_samp, ncol = n_target) 
+  v_llik <- matrix(0, nrow = n_samp, ncol = n_outcomes) 
   llik_overall <- numeric(n_samp)
   for(j in 1:n_samp) { # j=1
     jj <- tryCatch( { 
       ###   Run model for parameter set "v_params" ###
       l_model_out <- calibration_out(v_params[j, ])
       
+      ### Targets
+      df_targets_Prev <- df_targets %>% filter(abbrev_outcome == "Prev")
+      df_targets_PropSick <- df_targets %>% filter(abbrev_outcome == "PropSick")
+      df_targets_Surv <- df_targets %>% filter(abbrev_outcome == "Surv")
+      
       ###  Calculate log-likelihood of model outputs to targets  ###
       # TARGET 1: Survival ("Surv")
       # log likelihood  
-      v_llik[j, 1] <- sum(dnorm(x = lst_targets$Surv$value,
+      v_llik[j, 1] <- sum(dnorm(x = df_targets_Surv$value,
                                 mean = l_model_out$df_Surv$value,
-                                sd = lst_targets$Surv$se,
+                                sd = df_targets_Surv$se,
                                 log = T))
       
       # TARGET 2: Prevalence ("Prev")
       # log likelihood
-      v_llik[j, 2] <- sum(dnorm(x = lst_targets$Prev$value,
+      v_llik[j, 2] <- sum(dnorm(x = df_targets_Prev$value,
                                 mean = l_model_out$df_Prev$value,
-                                sd = lst_targets$Prev$se,
+                                sd = df_targets_Prev$se,
                                 log = T))
       
       # TARGET 3: Proportion of sick in Sick state ("PropSick")
       # log likelihood
-      v_llik[j, 3] <- sum(dnorm(x = lst_targets$PropSick$value,
+      v_llik[j, 3] <- sum(dnorm(x = df_targets_PropSick$value,
                                 mean = l_model_out$df_PropSick$value,
-                                sd = lst_targets$PropSick$se,
+                                sd = df_targets_PropSick$se,
                                 log = T))
       
       # OVERALL 
