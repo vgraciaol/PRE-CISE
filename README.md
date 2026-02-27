@@ -1,2 +1,6 @@
 # PRE-CISE
 PRE-CISE: a pre-calibration workflow that integrates coverage, local sensitivity, and collinearity (identifiability) analyses to improve calibration target coverage, reduce nonidentifiability, and enhance calibration efficiency. Applied to a four-state Sick-Sicker Markov testbed model, PRE-CISE uses coverage to check if model outputs generated from priors can reproduce targets, elasticities to identify key parameters and refine bounds, and collinearity indices to diagnose nonidentifiability and inform target selection. 
+
+## Set up
+1. Clone the repository
+2. Verify R version 4.4.0 or newer is installed on your machine.
