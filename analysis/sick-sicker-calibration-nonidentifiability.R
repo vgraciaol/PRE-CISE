@@ -1,21 +1,4 @@
 #------------------------------------------------------------------------------#
-# This code was created by the DARTH workgroup (www.darthworkgroup.com).       #
-# When using or modifying this code, please do so with attribution and         #
-# cite our publications:                                                       #
-#                                                                              #
-# - Alarid-Escudero F, Maclehose RF, Peralta Y, Kuntz KM, Enns EA.             #
-#   Non-identifiability in model calibration and implications for              #
-#   medical decision making. Med Decis Making. 2018; 38(7):810-821.            #
-#                                                                              #
-# - Jalal H, Pechlivanoglou P, Krijkamp E, Alarid-Escudero F, Enns E,          #
-#   Hunink MG. An Overview of R in Health Decision Sciences.                   #
-#   Med Decis Making. 2017; 37(3): 735-746.                                    #
-#                                                                              #
-# A walkthrough of the code could be found in the follwing link:               #
-# - https://darth-git.github.io/calibSMDM2018-materials/                       #
-#------------------------------------------------------------------------------#
-
-#------------------------------------------------------------------------------#
 # This script illustrate the uses of sensitivity and identifiability analyses  #
 # for efficient calibration of health policy models by calibrating a Sick-     #
 # Sicker 4-state Markov Model to survival probability, prevalence, and         #
