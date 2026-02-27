@@ -1,4 +1,4 @@
-#' Incremental Mixture Importance Sampling
+#' Incremental Mixture Importance Sampling (IMIS package)
 #' 
 #' @param B The incremental sample size at each iteration of IMIS.
 #' @param B.re The desired posterior sample size at the resample stage.
