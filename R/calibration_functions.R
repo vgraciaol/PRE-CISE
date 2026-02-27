@@ -50,11 +50,13 @@ calibration_out <- function(v_params){
 #' from their prior distribution.
 #' 
 #' @param n_samp Number of samples.
-#' @param v_lb Vector containing the lower bounds of the calibrated parameters.
-#' @param v_ub Vector containing the upper bounds of the calibrated parameters.
+#' @param v_lb Vector containing the lower bounds of the calibrated 
+#' parameters.
+#' @param v_ub Vector containing the upper bounds of the calibrated 
+#' parameters.
 #'
-#' @return A matrix with n number of columns as number of parameters to be calibrated
-#' and \code{n_samp} rows. Each row corresponds to a 
+#' @return A matrix with n number of columns as number of parameters to 
+#' be calibrated and \code{n_samp} rows. Each row corresponds to a 
 #' parameter set sampled from their prior distributions.
 #' @export
 sample_prior <- function(n_samp, v_lb, v_ub){
@@ -142,9 +144,12 @@ log_lik <- function(v_params){
       l_model_out <- calibration_out(v_params[j, ])
       
       ### Targets
-      df_targets_Prev <- df_targets %>% filter(abbrev_outcome == "Prev")
-      df_targets_PropSick <- df_targets %>% filter(abbrev_outcome == "PropSick")
-      df_targets_Surv <- df_targets %>% filter(abbrev_outcome == "Surv")
+      df_targets_Prev <- df_targets %>% 
+        filter(abbrev_outcome == "Prev")
+      df_targets_PropSick <- df_targets %>% 
+        filter(abbrev_outcome == "PropSick")
+      df_targets_Surv <- df_targets %>% 
+        filter(abbrev_outcome == "Surv")
       
       ###  Calculate log-likelihood of model outputs to targets  ###
       # TARGET 1: Survival ("Surv")
@@ -207,8 +212,8 @@ log_post <- function(v_params) {
 
 #' Evaluate posterior of calibrated parameters
 #'
-#' \code{posterior} computes a posterior value for one (or multiple) parameter
-#' set(s).
+#' \code{posterior} computes a posterior value for one (or multiple) 
+#' parameterset(s).
 #' 
 #' @param v_params_calib Vector (or matrix) of model parameters.
 #' 
