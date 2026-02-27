@@ -19,15 +19,16 @@
 # This script illustrate the uses of sensitivity and identifiability analyses  #
 # for efficient calibration of health policy models by calibrating a Sick-     #
 # Sicker 4-state Markov Model to survival probability, prevalence, and         #
-# proportion of sick using the IMIS algorithm.                                 #
+# proportion of Sick using the IMIS algorithm.                                 #
 #                                                                              #
 # Authors:                                                                     #
 #     Fernando Alarid-Escudero, PhD, <falarid@stanford.edu>                    #
 #     Valeria Gracia Olvera, MSc, <vgracia@stanford.edu>                       #
 #                                                                              #
 # Created: 11/14/24                                                            #
-# Last update: 07/02//25                                                       #
+# Last update: 02/11/26                                                        #
 #------------------------------------------------------------------------------#
+rm(list = ls()) # clean environment
 
 # Calibration Specifications ----------------------------------------------
 # Model: Sick-Sicker 4-state Markov Model
@@ -38,7 +39,7 @@
 # Targets: 
 #   Surv     - survival probability
 #   Prev     - prevalence (sick and sicker)
-#   PropSick - proportion of sick
+#   PropSick - proportion of Sick
 # Search method: Random search using Latin-Hypercube Sampling
 # Goodness-of-fit measure: Sum of Log-Likelihood
 
@@ -81,7 +82,7 @@ set.seed(n_seed)
 
 # Target data -------------------------------------------------------------
 load("data/SickSicker_CalibTargets.RData")
-l_targets <- SickSicker_targets # Q1 should we only use 10,20,30 targets?
+l_targets <- SickSicker_targets 
 
 # Gather targets in a data.frame
 df_targets <- rbind(l_targets$Surv %>% 
@@ -96,7 +97,7 @@ df_targets <- rbind(l_targets$Surv %>%
                       select(time, Outcome, abbrev_outcome, type, value, lb, ub, se),
                     l_targets$PropSick %>% 
                       mutate(type = "Target",
-                             Outcome = "Proportion of sick",
+                             Outcome = "Proportion of Sick",
                              abbrev_outcome = "PropSick") %>% 
                       select(time, Outcome, abbrev_outcome, type, value, lb, ub, se)) %>% 
   filter(time %in% c(10,20,30))
@@ -127,7 +128,7 @@ v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1.0, hr_S2 = 5.0)  # lower bound
 v_ub <- c(p_S1S2 = 0.50, hr_S1 = 4.5, hr_S2 = 15.0) # upper bound
 
 # Number of calibration targets
-v_outcome_names <- c("Survival", "Prevalence", "Prop. Sick")
+v_outcome_names <- c("Survival probability", "Prevalence", "Proportion of Sick")
 names(v_outcome_names) <- c("Surv", "Prev", "PropSick")
 n_outcomes <- length(v_outcome_names)
 
@@ -177,6 +178,7 @@ run_coverage <- function(m_params){
     # Gather results
     df_model <- rbind(df_model, df_temp) 
     
+    # Print progress
     if(iter_i/100==round(iter_i/100,0)) { 
       cat('\r',paste(iter_i/n_sim*100,"% simulations done",sep=""))
     }
@@ -234,8 +236,8 @@ costFun <- function(v_params) {
     filter(time %in% c(10,20,30)) %>% 
     select(time, PropSick)
   
-  df_targets_PropSick <- df_targets %>% 
-    filter(abbrev_outcome == "PropSick") %>% 
+    df_targets_PropSick <- df_targets %>% 
+      filter(abbrev_outcome == "PropSick") %>% 
     select(time, value, se) %>% 
     rename(PropSick = value)
   
@@ -272,8 +274,8 @@ v_params_1 <- colMeans(m_params_1)
 modCost1   <- costFun(v_params_1)
 
 # Plot residuals
-plot_costFun(modCost1, wgt_res = T) # weighted residuals
-plot_costFun(modCost1, wgt_res = F) # unweighted residuals
+plot_costFun(Cfun = modCost1, wgt_res = T) # weighted residuals
+plot_costFun(modCost1, wgt_res = F)        # unweighted residuals
 
 # 2. Sensitivity analysis
 SensRes1 <- sensFun(func  = costFun, 
@@ -281,6 +283,10 @@ SensRes1 <- sensFun(func  = costFun,
 
 # Plot sensitivity
 plot_Sfun(SensRes1)
+
+# Save plot
+plot_Sfun(SensRes1)
+# ggsave("figs/fig_SickSicker_Sfun.jpg", width = 10, height = 6)
 
 # Rank parameters according to their importance
 m_Sens1 <- summary(SensRes1)
@@ -291,7 +297,7 @@ m_Sens1 <- summary(SensRes1)
 # L2: L2 norm
 df_Sens1 <- as.data.frame(m_Sens1)
 
-# Order by L2 norm
+# Order by L2
 df_Sens1[order(df_Sens1$L2, decreasing = T),] 
 
 # Prob. to become sicker when sick: p_S1S2
@@ -313,7 +319,8 @@ for(target_i in c("PropSick","Prev")){ # target_i = "PropSick"
     mutate(y_change = ifelse(mod != 0, (obs-mod)/mod, 0)) %>% 
     left_join(df_epsi,
               by = "x") %>% 
-    mutate(par_change = y_change/epsilon)
+    mutate(par_change = y_change/epsilon,
+           par_change_lb = ifelse(1-abs(par_change)<0, NA,1-abs(par_change))*v_lb_1["p_S1S2"])
  
   # Bind data
   df_changes_1 <- rbind(df_changes_1,
@@ -322,15 +329,12 @@ for(target_i in c("PropSick","Prev")){ # target_i = "PropSick"
 }
 
 # Percent change for lower or upper bound
-df_changes_1 <- df_changes_1 %>% 
-  mutate(par_star_lb = max(abs(par_change)))
-
-par_change_lb <- df_changes_1$par_change[which(df_changes_1$par_star_lb == abs(df_changes_1$par_change))]
-
+n_change_lb <- min(df_changes_1$par_change_lb, na.rm = T)
+  
 # Resize bounds
 v_lb_2 <- v_lb_1
 v_ub_2 <- v_ub_1
-v_lb_2["p_S1S2"] <- v_lb_2["p_S1S2"]*ifelse(1+par_change_lb<0,0,1+par_change_lb)
+v_lb_2["p_S1S2"] <- n_change_lb
 
 # Run coverage
 m_params_2 <- sample_prior(n_samp = n_sim,
@@ -338,7 +342,7 @@ m_params_2 <- sample_prior(n_samp = n_sim,
                            v_ub = v_ub_2)
 l_coverage_2 <- run_coverage(m_params = m_params_2)
 df_coverage_2 <- l_coverage_2$df_model_summ %>% 
-  mutate(type_coverage = "Model coverage by resizing the prob. to become sicker when sick")
+  mutate(type_coverage = "A: Improved model coverage by resizing the probability to become Sicker when Sick")
 
 plot_coverage(df_targets  = df_targets,
               df_coverage = rbind(df_coverage_1,df_coverage_2))
@@ -354,6 +358,18 @@ SensRes2 <- sensFun(func  = costFun,
 
 # Plot sensitivity
 # plot_Sfun(SensRes2)
+
+# Rank parameters according to their importance
+m_Sens2 <- summary(SensRes2)
+
+# value: value of the parameter 
+# Mean: mean sensitivity
+# L1: L1 norm
+# L2: L2 norm
+df_Sens2 <- as.data.frame(m_Sens2)
+
+# Order by L2
+df_Sens2[order(df_Sens2$L2, decreasing = T),] 
 
 # 3. Compute the change in the prior distribution bounds based on the 
 # sensitivity analysis
@@ -373,7 +389,8 @@ for(target_i in c("Surv")){ # target_i = "PropSick"
     mutate(y_change = ifelse(mod != 0, (obs-mod)/mod, 0)) %>% 
     left_join(df_epsi,
               by = "x") %>% 
-    mutate(par_change = y_change/epsilon)
+    mutate(par_change = y_change/epsilon,
+           par_change_ub = ifelse(1+abs(par_change)<1, NA, 1+abs(par_change))*v_ub_2["hr_S2"])
   
   # Bind data
   df_changes_2 <- rbind(df_changes_2,
@@ -382,15 +399,12 @@ for(target_i in c("Surv")){ # target_i = "PropSick"
 }
 
 # Percent change for lower or upper bound
-df_changes_2 <- df_changes_2 %>% 
-  mutate(par_star_ub = min(abs(par_change)))
-
-par_change_ub <- df_changes_2$par_change[which(df_changes_2$par_star_ub == abs(df_changes_2$par_change))]
+n_change_ub <- min(df_changes_2$par_change_ub, na.rm = T)
 
 # Resize bounds
 v_lb_3 <- v_lb_2
 v_ub_3 <- v_ub_2
-v_ub_3["hr_S2"] <- v_ub_3["hr_S2"]*ifelse(1+par_change_ub<0,0,1+par_change_ub)
+v_ub_3["hr_S2"] <- n_change_ub
 
 # Run coverage
 m_params_3 <- sample_prior(n_samp = n_sim,
@@ -398,7 +412,7 @@ m_params_3 <- sample_prior(n_samp = n_sim,
                            v_ub   = v_ub_3)
 l_coverage_3 <- run_coverage(m_params = m_params_3)
 df_coverage_3 <- l_coverage_3$df_model_summ %>% 
-  mutate(type_coverage = "Model coverage by resizing the hazard ratio of death in sicker vs healthy")
+  mutate(type_coverage = "B: A + improved model coverage by resizing the hazard ratio for death in Sicker")
 
 plot_coverage(df_targets  = df_targets,
               df_coverage = rbind(df_coverage_1,df_coverage_2,df_coverage_3))
@@ -406,7 +420,7 @@ plot_coverage(df_targets  = df_targets,
 # Hazard ratio of death in sicker vs health: hr_S1
 # 1. Compute model-data residuals on previous coverage (mean values)
 v_params_3 <- colMeans(m_params_3)      # mean values
-modCost3 <- costFun(v_params_3)
+modCost3   <- costFun(v_params_3)
 
 # 2. Sensitivity analysis
 SensRes3 <- sensFun(func  = costFun, 
@@ -433,7 +447,8 @@ for(target_i in c("Surv")){ # target_i = "PropSick"
     mutate(y_change = ifelse(mod != 0, (obs-mod)/mod, 0)) %>% 
     left_join(df_epsi,
               by = "x") %>% 
-    mutate(par_change = y_change/epsilon)
+    mutate(par_change = y_change/epsilon,
+           par_change_ub = ifelse(1+abs(par_change)<1, NA, 1+abs(par_change))*v_ub_3["hr_S1"])
   
   # Bind data
   df_changes_3 <- rbind(df_changes_3,
@@ -442,15 +457,12 @@ for(target_i in c("Surv")){ # target_i = "PropSick"
 }
 
 # Percent change for lower or upper bound
-df_changes_3 <- df_changes_3 %>% 
-  mutate(par_star_ub = max(abs(par_change)))
-
-par_change_ub <- df_changes_3$par_change[which(df_changes_3$par_star_ub == abs(df_changes_3$par_change))]
+n_change_ub <- max(df_changes_3$par_change_ub, na.rm = T)
 
 # Resize bounds
 v_lb_4 <- v_lb_3
 v_ub_4 <- v_ub_3
-v_ub_4["hr_S1"] <- v_ub_4["hr_S1"]*ifelse(1+par_change_ub<0,0,1+par_change_ub)
+v_ub_4["hr_S1"] <- n_change_ub
 
 # Run coverage
 m_params_4 <- sample_prior(n_samp = n_sim,
@@ -458,12 +470,14 @@ m_params_4 <- sample_prior(n_samp = n_sim,
                            v_ub   = v_ub_4)
 l_coverage_4 <- run_coverage(m_params = m_params_4)
 df_coverage_4 <- l_coverage_4$df_model_summ %>% 
-  mutate(type_coverage = "Model coverage by resizing the hazard ratio of death in sick vs healthy")
+  mutate(type_coverage = "C: A + B + improved model coverage by resizing the hazard ratio for death in Sick")
 
 plot_coverage(df_targets  = df_targets,
               df_coverage = rbind(df_coverage_1,df_coverage_2,df_coverage_3,df_coverage_4))
 
-# ggsave(filename = "figs/fig_coverage_all.jpg", width = 14, height = 7)
+fig_coverage <- plot_coverage(df_targets  = df_targets,
+                              df_coverage = rbind(df_coverage_1,df_coverage_2,df_coverage_3,df_coverage_4))
+# ggsave(filename = "figs/fig_SickSicker_Coverage.jpg", width = 10, height = 6)
 
 # Range on input search space after resize bounds
 v_lb_final <- v_lb_4
@@ -476,8 +490,22 @@ m_params_final <- sample_prior(n_samp = n_sim,
 l_coverage_final <- run_coverage(m_params = m_params_final)
 df_coverage_final <- l_coverage_final$df_model_summ
 
-plot_model_out_vs_targets(df_targets = df_targets,
-                          df_model   = df_coverage_final)
+fig_coverage_final <- plot_model_out_vs_targets(df_targets = df_targets,
+                                                df_model   = df_coverage_final)
+
+# Save
+# ggsave("figs/fig_SickSicker_FinalCoverage.jpg", width = 10, height = 5)
+
+# Put figures together
+ggarrange(NULL, fig_coverage,
+          NULL, NULL,
+          NULL, fig_coverage_final,
+          heights = c(1.2,0.05,0.9), widths = c(0.05,1),
+          ncol = 2, nrow = 3,
+          common.legend = F,
+          labels = c("A","","B"),
+          font.label = list(size = 25))
+ggsave(filename = "figs/fig_SickSicker_Coverage_All.jpg", width = 12, height = 12)
 
 # Identifiability (Collinearity) analysis ---------------------------------
 SensRes <- sensFun(func  = costFun, 
@@ -537,13 +565,13 @@ df_collin <- rbind(df_collin,
                             Outcome = paste0(v_outcome_names,collapse = " & ")))
 
 # Plot collinearity analysis
-plot_CollIndx(df_collin, log_y = T)
+plot_CollIndx(df_collin = df_collin, log_y = T)
+
+# Save plot
+ggsave("figs/fig_SickSicker_collindx.jpg", width = 10, height = 9)
 
 # Calibrate! --------------------------------------------------------------
 # Range on input search space
-# v_lb <- c(p_S1S2 = 0.10, hr_S1 = 1.0, hr_S2 = 1.0) # lower bound
-# v_ub <- c(p_S1S2 = 0.20, hr_S1 = 1.1, hr_S2 = 1.1) # upper bound
-
 v_lb <- v_lb_final # lower bound
 v_ub <- v_ub_final # upper bound
 
@@ -621,6 +649,11 @@ for(iter_i in 1:n_resamp){ # iter_i = 1
   
   # Gather results
   df_model_posterior <- rbind(df_model_posterior, df_temp) 
+  
+  # Print progress
+  if(iter_i/100==round(iter_i/100,0)) { 
+    cat('\r',paste(iter_i/n_resamp*100,"% done",sep=""))
+  }
   
 }
 
