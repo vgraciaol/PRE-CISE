@@ -1,4 +1,5 @@
-#' Incremental Mixture Importance Sampling (IMIS package)
+#' Incremental Mixture Importance Sampling (IMIS package) adapted for the 
+#' Sick-Sicker model
 #' 
 #' @param B The incremental sample size at each iteration of IMIS.
 #' @param B.re The desired posterior sample size at the resample stage.
@@ -36,7 +37,8 @@ IMIS <- function(B=1000, B.re=3000, number_k=100, D=0, v_lb, v_ub){
   for (k in 1:number_k){ # k = 1
     
     ptm.like = proc.time()
-    prior_all = c(prior_all, prior(X_k))		  # Calculate the prior densities
+    prior_all = c(prior_all, 
+                  prior(X_k, v_lb = v_lb, v_ub = v_ub))  # Calculate the prior densities
     like_all = c(like_all, likelihood(X_k))		# Calculate the likelihoods
     ptm.use = (proc.time() - ptm.like)[3]
     if (k==1){
@@ -84,7 +86,8 @@ IMIS <- function(B=1000, B.re=3000, number_k=100, D=0, v_lb, v_ub){
         # Remove the selected input from candidates
         which_exclude = union( which_exclude, important )
         which_remain = setdiff(which_remain, which_exclude)
-        posterior = function(theta){	-log(prior(theta))-log(likelihood(theta)) }
+        posterior = function(theta){	-log(prior(theta, v_lb=v_lb, v_ub=v_ub))-
+            log(likelihood(theta)) }
         
         if (is.vector(X_all)){
           if (length(important)==0)	X_imp = center_all[1]
@@ -92,7 +95,10 @@ IMIS <- function(B=1000, B.re=3000, number_k=100, D=0, v_lb, v_ub){
                             control=list(parscale=sqrt(Sig2_global)/10,maxit=5000))
           print(paste("maximum posterior=", round(-optimizer$value,2), 
                       ", likelihood=", round(log(likelihood(optimizer$par)),2),
-                      ", prior=", round(log(prior(optimizer$par)),2), 
+                      ", prior=", 
+                      round(log(prior(optimizer$par, 
+                                      v_lb = v_lb, 
+                                      v_ub = v_ub)),2), 
                       ", time used=", round(ptm.use/60,2), 
                       "minutes, convergence=", optimizer$convergence))
           center_all = c(center_all, optimizer$par)
@@ -115,7 +121,10 @@ IMIS <- function(B=1000, B.re=3000, number_k=100, D=0, v_lb, v_ub){
           ptm.use = (proc.time() - ptm.opt)[3]
           print(paste("maximum posterior=", round(-optimizer$value,2), 
                       ", likelihood=", round(log(likelihood(optimizer$par)),2),
-                      ", prior=", round(log(prior(optimizer$par)),2), 
+                      ", prior=", 
+                      round(log(prior(optimizer$par, 
+                                      v_lb = v_lb,
+                                      v_ub = v_ub)),2), 
                       ", time used=", round(ptm.use/60,2), 
                       "minutes, convergence=", optimizer$convergence))
           center_all = rbind(center_all, optimizer$par)		# the center of new samples
