@@ -261,11 +261,11 @@ plot_coverage <- function(df_targets, df_coverage){
                                           levels = v_levels)
   
   # Vector of shapes
-  v_shape <- c(1,1,rep(NA,length(v_levels)-2))
+  v_shape <- c(1,rep(NA,length(v_levels)-1))
   names(v_shape) <- v_levels
   
   # Vector of colors
-  v_colors <- v_colors <- c("black","red","#FF8000","#56B4E9","#009E73","#CCBFFF","tan")
+  v_colors <- c("black","red","#FF8000","#56B4E9","#009E73","#CCBFFF","tan")
   names(v_colors) <- c(
     "Calibration target",
     "Calibration target sampled",
